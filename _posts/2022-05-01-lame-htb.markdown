@@ -119,7 +119,7 @@ connection = SMBConnection(username, "", "", "")
 connection.connect("10.10.10.3",445)
 ```
   
-10.10.14.21 4444 is my local host and port, and 10.10.10.3 445 is the remote host and port. 
+`10.10.14.21 4444` is my local host and port, and `10.10.10.3 445` is the remote host and port. 
 This was a simple enough script, but necessary since the payload cannot be injected via smbclient. I set up a netcat listener on another
 terminal and got root access; both flags captured.  
 
