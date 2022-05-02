@@ -28,7 +28,7 @@ twitter_username:  infiltr84
 github_username:  infiltr8
 
 # Build settings
-theme: minima
+theme: jekyll-theme-midnight
 plugins:
   - jekyll-feed
   - jekyll-remote-theme
