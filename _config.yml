@@ -23,7 +23,6 @@ email: infiltreight@gmail.com
 description: >- # this means to ignore newlines until "baseurl:"
   This blog follows machines on HackTheBox.
   Here I post solutions as well as tools I've developed to assist me.
-baseurl: "" # the subpath of your site, e.g. /blog
 url: "https://infiltr8.github.io" # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username:  infiltr84
 github_username:  infiltr8
