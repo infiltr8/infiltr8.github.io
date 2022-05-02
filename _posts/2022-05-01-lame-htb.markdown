@@ -93,7 +93,7 @@ the password blank.
 	ftp>  
 
 
-Looks like there's no files to be share on the server. 
+Looks like there's no files to be shared on the server. 
 I also connected to the system with SMB but found nothing of interest.
 With that, I'll start to investigate the specific SMB version, 3.0.20-Debian.    
 
