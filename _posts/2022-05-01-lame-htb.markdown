@@ -16,7 +16,7 @@ The key to owning this box was to pay attention to software versions, and keep o
 outdated or vulnerable versions specifically. This problem identification is what allowed me to
 discover a key RCE vulnerability which I show how to exploit in 2 different ways in this walkthrough.  
 
-### Enumeration  
+## Enumeration  
 
 To start, a ran a Nmap scan for version to identify service versions as well as running default scripts
 on the remote system.
@@ -103,7 +103,7 @@ It seems like adding  "/=\`nohup"  and then a shell command (ending with \`) wil
 `nohup` (no hangup) is a supplemental command used to keep certain processes or commands running even after logging out or disconnecting
 from our shell. I'll exploit this using a script.
 
-### <span style="color:red">Shell as Root</span>
+## <span style="color:red">Shell as Root</span>
 
 I'll start off by showing the 'best practice' exploit, by writing a python script. All this script will do is attempt to connect to the
 vulnerable system with the corrupt username and then the payload.  
@@ -151,7 +151,7 @@ user
 cd makis && ls
 user.txt
 ```
-### Metasploit method
+## Metasploit method
 
 This is essentially the same as what I did but with Metasploit.  
 
